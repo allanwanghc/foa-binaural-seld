@@ -1,0 +1,26 @@
+# Data (on HuggingFace)
+output/scenes/
+output/features/
+
+# Reference repos
+reference/
+
+# SpatialScaper source
+SpatialScaper-main/
+
+# Raw data
+data/
+
+# Claude internal
+.claude/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+
+# Experiments (model checkpoints, logs)
+output/experiments/
+docs/
