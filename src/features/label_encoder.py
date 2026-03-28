@@ -65,8 +65,9 @@ def _load_labels_tsv(label_path):
         frame_ind = int(row["frame"])
         class_id = int(row["class_id"])
         source_id = int(row["source_id"])
-        az_deg = float(row["azimuth_deg"])
-        el_deg = float(row["elevation_deg"])
+        # Support both column naming conventions
+        az_deg = float(row.get("azimuth_deg", row.get("azimuth", 0)))
+        el_deg = float(row.get("elevation_deg", row.get("elevation", 0)))
 
         x, y, z = azel_to_cartesian(az_deg, el_deg)
 
