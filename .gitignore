@@ -9,7 +9,7 @@ reference/
 SpatialScaper-main/
 
 # Raw data
-data/
+/data/
 
 # Claude internal
 .claude/
