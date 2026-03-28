@@ -96,32 +96,39 @@ def get_model(model_name, in_channels, num_classes=8):
 
 def get_scene_lists(data_dir, fmt):
     """
-    Get train/val/test scene lists from data directory structure.
-    Expects data_dir/features/{fmt}/ and data_dir/labels/
+    Get train/val/test scene lists.
 
-    Returns train_scenes, val_scenes, test_scenes as lists of filenames.
+    First tries to load from splits.json (output by 07_split_dataset.py),
+    then falls back to listing .npy files.
+
+    Returns train_scenes, val_scenes, test_scenes as lists of filenames (with .npy ext).
     """
-    feature_dir = os.path.join(data_dir, 'features', fmt)
+    feature_dir = os.path.join(data_dir, fmt)
     label_dir = os.path.join(data_dir, 'labels')
 
-    # Try to load split files if they exist
-    split_dir = os.path.join(data_dir, 'splits')
-    if os.path.exists(split_dir):
-        train_scenes = _load_split(os.path.join(split_dir, 'train.txt'))
-        val_scenes = _load_split(os.path.join(split_dir, 'val.txt'))
-        test_scenes = _load_split(os.path.join(split_dir, 'test.txt'))
-        return train_scenes, val_scenes, test_scenes
+    # Try splits.json (our pipeline output)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    splits_path = os.path.join(project_root, 'output', 'splits.json')
+    if os.path.exists(splits_path):
+        with open(splits_path) as f:
+            splits = json.load(f)
+        # Convert scene_id -> scene_id.npy, filter to those with features
+        result = []
+        for split_name in ['train', 'val', 'test']:
+            scenes = [f"{sid}.npy" for sid in splits.get(split_name, [])
+                       if os.path.exists(os.path.join(feature_dir, f"{sid}.npy"))
+                       and os.path.exists(os.path.join(label_dir, f"{sid}.npy"))]
+            result.append(scenes)
+        return result[0], result[1], result[2]
 
-    # Otherwise, list all .npy files and split
+    # Fallback: list all .npy files and split
     all_scenes = sorted([f for f in os.listdir(label_dir) if f.endswith('.npy')])
-    # Filter to scenes that have both features and labels
     all_scenes = [s for s in all_scenes if os.path.exists(os.path.join(feature_dir, s))]
 
     n = len(all_scenes)
     if n == 0:
         raise RuntimeError(f"No matching .npy files found in {feature_dir} and {label_dir}")
 
-    # Default split: 70% train, 15% val, 15% test
     n_train = int(0.7 * n)
     n_val = int(0.15 * n)
 
@@ -193,8 +200,8 @@ def train(args):
 
     # Directories
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_dir = os.path.join(project_root, 'data', 'processed')
-    exp_dir = os.path.join(project_root, 'experiments', args.exp_name)
+    data_dir = args.data_dir if args.data_dir else os.path.join(project_root, 'output', 'features')
+    exp_dir = os.path.join(project_root, 'output', 'experiments', args.exp_name)
     os.makedirs(exp_dir, exist_ok=True)
     os.makedirs(os.path.join(exp_dir, 'checkpoints'), exist_ok=True)
     os.makedirs(os.path.join(exp_dir, 'results'), exist_ok=True)
@@ -202,29 +209,26 @@ def train(args):
     # Feature format
     fmt = args.format  # 'foa' or 'binaural'
     in_channels = 7 if fmt == 'foa' else 6
-    feature_dir = os.path.join(data_dir, 'features', fmt)
+    feature_dir = os.path.join(data_dir, fmt)
     label_dir = os.path.join(data_dir, 'labels')
-
-    # Allow overriding data directory
-    if args.data_dir:
-        data_dir = args.data_dir
-        feature_dir = os.path.join(data_dir, 'features', fmt)
-        label_dir = os.path.join(data_dir, 'labels')
 
     print(f"Feature dir: {feature_dir}")
     print(f"Label dir: {label_dir}")
 
     # Scene lists
-    train_scenes, val_scenes, test_scenes = get_scene_lists(
-        data_dir if args.data_dir else os.path.join(project_root, 'data', 'processed'),
-        fmt
-    )
+    train_scenes, val_scenes, test_scenes = get_scene_lists(data_dir, fmt)
     print(f"Train: {len(train_scenes)} scenes, Val: {len(val_scenes)} scenes, "
           f"Test: {len(test_scenes)} scenes")
 
-    # Compute normalization stats on training data
-    print("Computing normalization statistics...")
-    norm_stats = compute_norm_stats(feature_dir, train_scenes)
+    # Load or compute normalization stats
+    precomputed_stats = os.path.join(data_dir, 'norm_stats', f'{fmt}_norm_stats.npz')
+    if os.path.exists(precomputed_stats):
+        print(f"Loading precomputed normalization stats from {precomputed_stats}")
+        stats = np.load(precomputed_stats)
+        norm_stats = (stats['mean'], stats['std'])
+    else:
+        print("Computing normalization statistics...")
+        norm_stats = compute_norm_stats(feature_dir, train_scenes)
     # Save norm stats for evaluation
     np.save(os.path.join(exp_dir, 'norm_mean.npy'), norm_stats[0])
     np.save(os.path.join(exp_dir, 'norm_std.npy'), norm_stats[1])
