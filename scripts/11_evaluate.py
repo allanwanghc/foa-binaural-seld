@@ -85,14 +85,18 @@ def get_model(model_name, in_channels, num_classes=8):
 
 def get_scene_list_for_split(data_dir, fmt, split):
     """Get scene list for a specific split."""
-    feature_dir = os.path.join(data_dir, 'features', fmt)
+    feature_dir = os.path.join(data_dir, fmt)
     label_dir = os.path.join(data_dir, 'labels')
 
-    # Try split files first
-    split_file = os.path.join(data_dir, 'splits', f'{split}.txt')
-    if os.path.exists(split_file):
-        with open(split_file, 'r') as f:
-            scenes = [line.strip() for line in f if line.strip()]
+    # Try splits.json first (our pipeline output)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    splits_path = os.path.join(project_root, 'output', 'splits.json')
+    if os.path.exists(splits_path):
+        with open(splits_path) as f:
+            splits = json.load(f)
+        scenes = [f"{sid}.npy" for sid in splits.get(split, [])
+                  if os.path.exists(os.path.join(feature_dir, f"{sid}.npy"))
+                  and os.path.exists(os.path.join(label_dir, f"{sid}.npy"))]
         return scenes
 
     # Fallback: list all and split
@@ -122,7 +126,7 @@ def evaluate(args):
 
     # Directories
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    exp_dir = os.path.join(project_root, 'experiments', args.exp_name)
+    exp_dir = os.path.join(project_root, 'output', 'experiments', args.exp_name)
 
     if not os.path.exists(exp_dir):
         raise FileNotFoundError(f"Experiment directory not found: {exp_dir}")
@@ -147,8 +151,8 @@ def evaluate(args):
     print(f"Model: {model_name}, Format: {fmt}, Classes: {num_classes}")
 
     # Data directory
-    data_dir = args.data_dir if args.data_dir else os.path.join(project_root, 'data', 'processed')
-    feature_dir = os.path.join(data_dir, 'features', fmt)
+    data_dir = args.data_dir if args.data_dir else os.path.join(project_root, 'output', 'features')
+    feature_dir = os.path.join(data_dir, fmt)
     label_dir = os.path.join(data_dir, 'labels')
 
     # Load normalization stats
