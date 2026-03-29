@@ -6,7 +6,7 @@ All scripts import constants from here.
 from pathlib import Path
 
 # ─── Paths ───────────────────────────────────────────────────────────
-PROJECT_ROOT = Path("/Users/awhc0813/Desktop/Thesis Code")
+PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 SCENES_DIR = OUTPUT_DIR / "scenes"

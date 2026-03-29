@@ -46,26 +46,18 @@ class SELDDataset(Dataset):
             self.chunk_length, self.hop_length
         )
 
-        # Cache for memory-mapped arrays (avoid reopening files repeatedly)
-        self._feat_cache = {}
-        self._label_cache = {}
-
     def __len__(self):
         return len(self.chunk_indices)
 
     def _load_feat(self, scene_idx):
-        """Load feature file with memory mapping."""
-        if scene_idx not in self._feat_cache:
-            feat_path = os.path.join(self.feature_dir, self.scene_list[scene_idx])
-            self._feat_cache[scene_idx] = np.load(feat_path, mmap_mode='r')
-        return self._feat_cache[scene_idx]
+        """Load feature file."""
+        feat_path = os.path.join(self.feature_dir, self.scene_list[scene_idx])
+        return np.load(feat_path)
 
     def _load_label(self, scene_idx):
-        """Load label file with memory mapping."""
-        if scene_idx not in self._label_cache:
-            label_path = os.path.join(self.label_dir, self.scene_list[scene_idx])
-            self._label_cache[scene_idx] = np.load(label_path, mmap_mode='r')
-        return self._label_cache[scene_idx]
+        """Load label file."""
+        label_path = os.path.join(self.label_dir, self.scene_list[scene_idx])
+        return np.load(label_path)
 
     def __getitem__(self, idx):
         scene_idx, start_frame, actual_length = self.chunk_indices[idx]
